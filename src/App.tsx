@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   ArrowDown,
   ArrowUpRight,
@@ -16,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { FaGithub, FaLinkedin } from 'react-icons/fa'
+import { BsTwitterX } from 'react-icons/bs';
 
 const projects = [
   {
@@ -69,10 +71,32 @@ const skills = [
   ['Digital Systems', Globe2],
 ];
 
-// Words for the staggered hero headline reveal. Kept as data so the
-// animation delay math lives in one place instead of scattered inline.
+// Words for the staggered hero headline reveal.
 const heroLineOne = ['I', 'build', 'things'];
 const heroLineTwo = ['people', 'can', 'use.'];
+
+// Fires `inView = true` once an element crosses the viewport threshold,
+// then stops watching. Powers every scroll-triggered entrance below.
+function useInView<T extends HTMLElement = HTMLDivElement>(threshold = 0.2) {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          obs.unobserve(el);
+        }
+      },
+      { threshold }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+  return [ref, inView] as const;
+}
 
 function ProjectVisual({
   icon: Icon,
@@ -92,18 +116,72 @@ function ProjectVisual({
   );
 }
 
-// Purely decorative — currentColor / transparent only, so it always
-// matches whatever palette the surrounding page defines. Nothing here
-// introduces a new color.
-function HeroDecor() {
+// A single card in the Work section. Sticky-positioned with an
+// increasing top offset so, as you scroll, each card stacks on top
+// of the last instead of just scrolling past, and pops in with a
+// slight tilt the first time it's scrolled to.
+function ProjectCard({
+  project,
+  index,
+  onHover,
+}: {
+  project: (typeof projects)[number];
+  index: number;
+  onHover: (v: string) => void;
+}) {
+  const [ref, inView] = useInView<HTMLElement>(0.2);
+  const isEven = index % 2 === 0;
   return (
-    <div className="hero-decor" aria-hidden="true">
-      <span className="deco-shape deco-ring" />
-      <span className="deco-shape deco-square" />
-      <span className="deco-shape deco-dot" />
-      <span className="deco-mark deco-mark-1">✦</span>
-      <span className="deco-mark deco-mark-2">⌁</span>
-      <span className="deco-mark deco-mark-3">◆</span>
+    <article
+      ref={ref}
+      className={`project stack-project ${inView ? 'in-view' : ''}`}
+      style={
+        {
+          position: 'sticky',
+          top: `${88 + index * 26}px`,
+          zIndex: index + 1,
+          marginBottom: index === projects.length - 1 ? 0 : '16vh',
+          transitionDelay: `${index * 100}ms`,
+          '--tilt': isEven ? '-1.4deg' : '1.4deg',
+        } as any
+      }
+      onMouseEnter={() => onHover('VIEW')}
+      onMouseLeave={() => onHover('')}
+    >
+      <ProjectVisual icon={project.icon} tone={project.tone} />
+      <div className="project-meta">
+        <span>
+          {project.number} / {project.type}
+        </span>
+        <ArrowUpRight size={18} />
+      </div>
+      <h3>{project.title}</h3>
+      <div className="project-sub">{project.subtitle}</div>
+      <p>{project.description}</p>
+      <button>
+        View project <ArrowUpRight size={15} />
+      </button>
+    </article>
+  );
+}
+
+// Generic scroll-entrance wrapper: fades/pops a card in the first
+// time it enters the viewport, with an optional stagger delay.
+function Reveal({
+  children,
+  delay = 0,
+}: {
+  children: ReactNode;
+  delay?: number;
+}) {
+  const [ref, inView] = useInView<HTMLDivElement>(0.2);
+  return (
+    <div
+      ref={ref}
+      className={`reveal-pop ${inView ? 'in-view' : ''}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
     </div>
   );
 }
@@ -132,183 +210,109 @@ function App() {
   return (
     <main className="site">
       <style>{`
-        @keyframes floatY {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-16px); }
-        }
-        @keyframes driftX {
-          0%, 100% { transform: translateX(0) rotate(0deg); }
-          50% { transform: translateX(10px) rotate(8deg); }
-        }
-        @keyframes spinSlow {
-          to { transform: rotate(360deg); }
-        }
-        @keyframes spinSlowReverse {
-          to { transform: rotate(-360deg); }
-        }
         @keyframes wordRise {
           from { opacity: 0; transform: translateY(22px) rotate(-2deg); }
           to { opacity: 1; transform: translateY(0) rotate(0deg); }
         }
-        @keyframes wiggle {
-          0%, 100% { transform: rotate(0deg); }
-          25% { transform: rotate(-4deg); }
-          75% { transform: rotate(4deg); }
+        @keyframes dotPop {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.35); opacity: 0.7; }
         }
         @keyframes bobArrow {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(7px); }
         }
-        @keyframes wobbleCaption {
-          0%, 100% { transform: rotate(0deg) translateY(0); }
-          33% { transform: rotate(-2deg) translateY(-3px); }
-          66% { transform: rotate(2deg) translateY(2px); }
-        }
-        @keyframes ringPulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.035); opacity: 0.85; }
-        }
-        @keyframes dotPop {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.4); }
-        }
 
         .hero { position: relative; overflow: hidden; }
+        .hero-heading .word { display: inline-block; opacity: 0; animation: wordRise 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .eyebrow-live .status-dot { animation: dotPop 1.8s ease-in-out infinite; }
+        .hero-scroll .bob { display: inline-flex; animation: bobArrow 1.4s ease-in-out infinite; }
+        .hero-actions .primary-btn, .hero-actions .text-btn { transition: transform 0.2s ease; }
+        .hero-actions .primary-btn:hover, .hero-actions .text-btn:hover { transform: scale(1.04); }
+        .hero-actions .primary-btn:active, .hero-actions .text-btn:active { transform: scale(0.97); }
 
-        .hero-decor {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          overflow: hidden;
+        /* ---- Hero portrait: one restrained, cinematic frame ---- */
+        @keyframes photoSettle {
+          from { opacity: 0; transform: scale(1.1); }
+          to { opacity: 1; transform: scale(1); }
         }
-        .deco-shape {
-          position: absolute;
-          border: 1.5px solid currentColor;
-          opacity: 0.16;
+        @keyframes kenBurns {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.045); }
         }
-        .deco-ring {
-          width: 130px;
-          height: 130px;
-          border-radius: 50%;
-          top: 10%;
-          left: 5%;
-          animation: floatY 7s ease-in-out infinite;
+        @keyframes cornerIn {
+          from { opacity: 0; transform: scale(0.5); }
+          to { opacity: 1; transform: scale(1); }
         }
-        .deco-square {
-          width: 64px;
-          height: 64px;
-          border-radius: 14px;
-          top: 62%;
-          left: 9%;
-          animation: driftX 9s ease-in-out infinite, spinSlow 22s linear infinite;
+        @keyframes lowerThirdIn {
+          from { opacity: 0; transform: translateY(14px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .deco-dot {
-          width: 42px;
-          height: 42px;
-          border-radius: 50%;
-          top: 22%;
-          right: 9%;
-          animation: floatY 5.5s ease-in-out infinite reverse;
-        }
-        .deco-mark {
-          position: absolute;
-          font-size: 20px;
-          opacity: 0.35;
-          line-height: 1;
-        }
-        .deco-mark-1 {
-          top: 16%;
-          right: 20%;
-          animation: floatY 5s ease-in-out infinite;
-        }
-        .deco-mark-2 {
-          bottom: 24%;
-          left: 7%;
-          animation: floatY 6.5s ease-in-out infinite;
-          animation-delay: 0.8s;
-        }
-        .deco-mark-3 {
-          top: 68%;
-          right: 12%;
-          animation: driftX 6s ease-in-out infinite;
-          animation-delay: 0.4s;
+        @keyframes slateIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
 
-        .hero-heading .word {
-          display: inline-block;
-          opacity: 0;
-          animation: wordRise 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        .portrait-frame { position: relative; width: 100%; height: 100%; border-radius: 18px; overflow: hidden; }
+        .frame-photo-wrap {
+          width: 100%; height: 100%; overflow: hidden;
+          opacity: 0; animation: photoSettle 1.1s cubic-bezier(0.19, 1, 0.22, 1) forwards;
         }
+        .frame-photo {
+          width: 100%; height: 100%; object-fit: cover; display: block;
+          animation: kenBurns 22s ease-in-out infinite;
+        }
+        .portrait-frame:hover .frame-photo { animation-duration: 8s; }
+        .frame-vignette {
+          position: absolute; inset: 0; pointer-events: none;
+          background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.18) 30%, rgba(0, 0, 0, 0) 52%);
+        }
+        .frame-corner {
+          position: absolute; width: 26px; height: 26px; opacity: 0;
+          animation: cornerIn 0.5s ease-out forwards;
+        }
+        .frame-corner.tl { top: 12px; left: 12px; border-top: 2px solid #fff; border-left: 2px solid #fff; transform-origin: top left; animation-delay: 0.35s; }
+        .frame-corner.tr { top: 12px; right: 12px; border-top: 2px solid #fff; border-right: 2px solid #fff; transform-origin: top right; animation-delay: 0.45s; }
+        .frame-corner.bl { bottom: 12px; left: 12px; border-bottom: 2px solid #fff; border-left: 2px solid #fff; transform-origin: bottom left; animation-delay: 0.55s; }
+        .frame-corner.br { bottom: 12px; right: 12px; border-bottom: 2px solid #fff; border-right: 2px solid #fff; transform-origin: bottom right; animation-delay: 0.65s; }
+        .frame-slate {
+          position: absolute; top: 14px; left: 14px; color: #fff; font-size: 11px; letter-spacing: 0.06em;
+          opacity: 0; animation: slateIn 0.5s ease-out forwards; animation-delay: 0.9s;
+        }
+        .frame-lower {
+          position: absolute; left: 18px; right: 18px; bottom: 16px; color: #fff;
+          opacity: 0; transform: translateY(14px);
+          animation: lowerThirdIn 0.6s cubic-bezier(0.19, 1, 0.22, 1) forwards; animation-delay: 1s;
+        }
+        .frame-lower .frame-eyebrow { display: block; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; opacity: 0.75; margin-bottom: 4px; }
+        .frame-lower strong { display: block; font-size: 16px; font-weight: 600; }
 
-        .eyebrow-playful { cursor: default; }
-        .eyebrow-playful:hover { animation: wiggle 0.5s ease; }
-        .eyebrow-playful .status-dot { animation: dotPop 1.6s ease-in-out infinite; }
+        /* ---- Work section: sticky stacking cards ---- */
+        .stack-project {
+          opacity: 0; transform: translateY(70px) scale(0.94) rotate(var(--tilt, 0deg));
+          transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .stack-project.in-view { opacity: 1; transform: translateY(0) scale(1) rotate(var(--tilt, 0deg)); }
+        .stack-project.in-view:hover { transform: translateY(-12px) scale(1.02) rotate(0deg); transition-duration: 0.35s; }
 
-        .hero-scroll .bob {
-          display: inline-flex;
-          animation: bobArrow 1.4s ease-in-out infinite;
+        /* ---- Generic reveal-on-scroll pop (Building + Personality cards) ---- */
+        .reveal-pop {
+          opacity: 0; transform: translateY(26px) scale(0.96);
+          transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
-
-        .hero-actions .primary-btn,
-        .hero-actions .text-btn {
-          transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .hero-actions .primary-btn:hover,
-        .hero-actions .text-btn:hover {
-          transform: scale(1.06) rotate(-1deg);
-        }
-        .hero-actions .primary-btn:active,
-        .hero-actions .text-btn:active {
-          transform: scale(0.96);
-        }
-
-        .portrait-ring-spin {
-          animation: spinSlow 20s linear infinite, ringPulse 4s ease-in-out infinite;
-        }
-        .portrait-image-float {
-          animation: floatY 5s ease-in-out infinite;
-        }
-        .portrait-orbit {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-        }
-        .orbit-dot {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: currentColor;
-          opacity: 0.55;
-          transform-origin: -50px center;
-        }
-        .orbit-dot.od-1 { animation: spinSlow 9s linear infinite; }
-        .orbit-dot.od-2 {
-          width: 5px;
-          height: 5px;
-          opacity: 0.35;
-          transform-origin: -78px center;
-          animation: spinSlowReverse 13s linear infinite;
-        }
-        .orbit-dot.od-3 {
-          width: 6px;
-          height: 6px;
-          opacity: 0.3;
-          transform-origin: -104px center;
-          animation: spinSlow 17s linear infinite;
-        }
-        .portrait-caption-wobble {
-          animation: wobbleCaption 4.5s ease-in-out infinite;
-        }
+        .reveal-pop.in-view { opacity: 1; transform: translateY(0) scale(1); }
+        .build-card, .person-card { transition: transform 0.3s ease; }
+        .build-card:hover { transform: translateY(-8px) scale(1.02); }
+        .person-card:hover { transform: translateY(-6px) scale(1.02); }
 
         @media (prefers-reduced-motion: reduce) {
-          .hero *,
-          .hero *::before,
-          .hero *::after {
+          .site * {
             animation: none !important;
             transition: none !important;
+          }
+          .frame-photo-wrap, .frame-corner, .frame-slate, .frame-lower, .stack-project, .reveal-pop, .hero-heading .word {
+            opacity: 1 !important;
+            transform: none !important;
           }
         }
       `}</style>
@@ -352,23 +356,14 @@ function App() {
       )}
 
       <section id="top" className="hero section-pad">
-        <HeroDecor />
         <div className="hero-copy reveal">
-          <div
-            className="eyebrow eyebrow-playful"
-            onMouseEnter={() => setActive('HI')}
-            onMouseLeave={() => setActive('')}
-          >
+          <div className="eyebrow eyebrow-live">
             <span className="status-dot" /> Chief Engineer · Co-Founder ·
             Builder
           </div>
           <h1 className="hero-heading">
             {heroLineOne.map((w, i) => (
-              <span
-                className="word"
-                key={w}
-                style={{ animationDelay: `${i * 70}ms` }}
-              >
+              <span className="word" key={w} style={{ animationDelay: `${i * 70}ms` }}>
                 {w}
                 {i < heroLineOne.length - 1 ? '\u00A0' : ''}
               </span>
@@ -376,11 +371,7 @@ function App() {
             <br />
             <em>
               {heroLineTwo.map((w, i) => (
-                <span
-                  className="word"
-                  key={w}
-                  style={{ animationDelay: `${220 + i * 70}ms` }}
-                >
+                <span className="word" key={w} style={{ animationDelay: `${220 + i * 70}ms` }}>
                   {w}
                   {i < heroLineTwo.length - 1 ? '\u00A0' : ''}
                 </span>
@@ -403,28 +394,23 @@ function App() {
         </div>
         <div
           className="hero-portrait"
-          onMouseEnter={() => setActive('HELLO')}
+          onMouseEnter={() => setActive('VIEW')}
           onMouseLeave={() => setActive('')}
         >
-          <div className="portrait-ring portrait-ring-spin" />
-          <div className="portrait-orbit">
-            <span className="orbit-dot od-1" />
-            <span className="orbit-dot od-2" />
-            <span className="orbit-dot od-3" />
-          </div>
-          <img
-            className="portrait-image portrait-image-float"
-            src="https://unavatar.io/x/chankuzy"
-            alt="Khalifa Muhammad"
-          />
-          <span className="portrait-label">
-            KHALIFA
-            <br />
-            MUHAMMAD
-          </span>
-          <div className="portrait-caption portrait-caption-wobble">
-            <span>Currently building</span>
-            <strong>→ Anaija</strong>
+          <div className="portrait-frame">
+            <div className="frame-photo-wrap">
+              <img className="frame-photo" src="https://unavatar.io/x/chankuzy" alt="Khalifa Muhammad" />
+            </div>
+            <div className="frame-vignette" />
+            <span className="frame-corner tl" />
+            <span className="frame-corner tr" />
+            <span className="frame-corner bl" />
+            <span className="frame-corner br" />
+            <span className="frame-slate">KM / 01</span>
+            <div className="frame-lower">
+              <span className="frame-eyebrow">Currently building</span>
+              <strong>→ Anaija</strong>
+            </div>
           </div>
         </div>
         <div className="hero-scroll">
@@ -471,28 +457,9 @@ function App() {
           </div>
           <span className="section-count">04 PROJECTS</span>
         </div>
-        <div className="projects">
-          {projects.map((p) => (
-            <article
-              className="project"
-              key={p.title}
-              onMouseEnter={() => setActive('VIEW')}
-              onMouseLeave={() => setActive('')}
-            >
-              <ProjectVisual icon={p.icon} tone={p.tone} />
-              <div className="project-meta">
-                <span>
-                  {p.number} / {p.type}
-                </span>
-                <ArrowUpRight size={18} />
-              </div>
-              <h3>{p.title}</h3>
-              <div className="project-sub">{p.subtitle}</div>
-              <p>{p.description}</p>
-              <button>
-                View project <ArrowUpRight size={15} />
-              </button>
-            </article>
+        <div className="projects" style={{ display: 'flex', flexDirection: 'column' }}>
+          {projects.map((p, i) => (
+            <ProjectCard key={p.title} project={p} index={i} onHover={setActive} />
           ))}
         </div>
       </section>
@@ -545,12 +512,14 @@ function App() {
             ['LYOPARD', 'Technology & infrastructure'],
             ['NEXT', 'Something I’m not ready to talk about yet.'],
           ].map(([a, b], i) => (
-            <div className={`build-card b${i}`} key={a}>
-              <span>0{i + 1}</span>
-              <h3>{a}</h3>
-              <p>{b}</p>
-              <ArrowUpRight />
-            </div>
+            <Reveal key={a} delay={i * 90}>
+              <div className={`build-card b${i}`}>
+                <span>0{i + 1}</span>
+                <h3>{a}</h3>
+                <p>{b}</p>
+                <ArrowUpRight />
+              </div>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -563,30 +532,40 @@ function App() {
           <em>in here too.</em>
         </h2>
         <div className="personality-grid">
-          <div className="person-card big">
-            <Sparkles />
-            <span>Currently building</span>
-            <strong>Anaija</strong>
-          </div>
-          <div className="person-card">
-            <Cpu />
-            <span>Currently exploring</span>
-            <strong>Digital infrastructure</strong>
-          </div>
-          <div className="person-card">
-            <MapPin />
-            <span>Based in</span>
-            <strong>Nigeria</strong>
-          </div>
-          <div className="person-card">
-            <Database />
-            <span>Favourite rabbit hole</span>
-            <strong>Systems</strong>
-          </div>
-          <div className="person-card joke">
-            <span>Last thing I broke</span>
-            <strong>Production 😭</strong>
-          </div>
+          <Reveal delay={0}>
+            <div className="person-card big">
+              <Sparkles />
+              <span>Currently building</span>
+              <strong>Anaija</strong>
+            </div>
+          </Reveal>
+          <Reveal delay={70}>
+            <div className="person-card">
+              <Cpu />
+              <span>Currently exploring</span>
+              <strong>Digital infrastructure</strong>
+            </div>
+          </Reveal>
+          <Reveal delay={140}>
+            <div className="person-card">
+              <MapPin />
+              <span>Based in</span>
+              <strong>Nigeria</strong>
+            </div>
+          </Reveal>
+          <Reveal delay={210}>
+            <div className="person-card">
+              <Database />
+              <span>Favourite rabbit hole</span>
+              <strong>Systems</strong>
+            </div>
+          </Reveal>
+          <Reveal delay={280}>
+            <div className="person-card joke">
+              <span>Last thing I broke</span>
+              <strong>Production 😭</strong>
+            </div>
+          </Reveal>
         </div>
       </section>
 
@@ -627,9 +606,9 @@ function App() {
             </div>
           ))}
         </div>
-        <button className="outline-btn">
+        <a href='https://lyopard.vercel.app' target='_blank' className="outline-btn">
           Visit Lyopard <ExternalLink size={16} />
-        </button>
+        </a>
       </section>
 
       <section id="contact" className="contact section-pad">
@@ -643,17 +622,17 @@ function App() {
           Let’s make it real <ArrowUpRight />
         </button>
         <div className="contact-links">
-          <a href="mailto:hello@lyopard.com">
+          <a target='_blank' href="mailto:mchankuxieey@gmail.com">
             <Mail size={16} /> Email
           </a>
-          <a href="#">
+          <a target='_blank' href="https://www.linkedin.com/in/muhammad-ibrahim-1881972a5/">
             <FaLinkedin size={16} /> LinkedIn
           </a>
-          <a href="#">
+          <a target='_blank' href="https://github.com/chankuzy">
             <FaGithub size={16} /> GitHub
           </a>
-          <a href="#">
-            <Globe2 size={16} /> X / Twitter
+          <a target='_blank' href="https://x.com/chankuzy">
+            <BsTwitterX size={16} /> X / Twitter
           </a>
         </div>
       </section>
