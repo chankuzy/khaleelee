@@ -69,6 +69,11 @@ const skills = [
   ['Digital Systems', Globe2],
 ];
 
+// Words for the staggered hero headline reveal. Kept as data so the
+// animation delay math lives in one place instead of scattered inline.
+const heroLineOne = ['I', 'build', 'things'];
+const heroLineTwo = ['people', 'can', 'use.'];
+
 function ProjectVisual({
   icon: Icon,
   tone,
@@ -83,6 +88,22 @@ function ProjectVisual({
         <Icon size={58} strokeWidth={1.2} />
       </div>
       <div className="visual-label">VISUAL PLACEHOLDER</div>
+    </div>
+  );
+}
+
+// Purely decorative — currentColor / transparent only, so it always
+// matches whatever palette the surrounding page defines. Nothing here
+// introduces a new color.
+function HeroDecor() {
+  return (
+    <div className="hero-decor" aria-hidden="true">
+      <span className="deco-shape deco-ring" />
+      <span className="deco-shape deco-square" />
+      <span className="deco-shape deco-dot" />
+      <span className="deco-mark deco-mark-1">✦</span>
+      <span className="deco-mark deco-mark-2">⌁</span>
+      <span className="deco-mark deco-mark-3">◆</span>
     </div>
   );
 }
@@ -110,6 +131,188 @@ function App() {
 
   return (
     <main className="site">
+      <style>{`
+        @keyframes floatY {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-16px); }
+        }
+        @keyframes driftX {
+          0%, 100% { transform: translateX(0) rotate(0deg); }
+          50% { transform: translateX(10px) rotate(8deg); }
+        }
+        @keyframes spinSlow {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes spinSlowReverse {
+          to { transform: rotate(-360deg); }
+        }
+        @keyframes wordRise {
+          from { opacity: 0; transform: translateY(22px) rotate(-2deg); }
+          to { opacity: 1; transform: translateY(0) rotate(0deg); }
+        }
+        @keyframes wiggle {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-4deg); }
+          75% { transform: rotate(4deg); }
+        }
+        @keyframes bobArrow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(7px); }
+        }
+        @keyframes wobbleCaption {
+          0%, 100% { transform: rotate(0deg) translateY(0); }
+          33% { transform: rotate(-2deg) translateY(-3px); }
+          66% { transform: rotate(2deg) translateY(2px); }
+        }
+        @keyframes ringPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.035); opacity: 0.85; }
+        }
+        @keyframes dotPop {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.4); }
+        }
+
+        .hero { position: relative; overflow: hidden; }
+
+        .hero-decor {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        .deco-shape {
+          position: absolute;
+          border: 1.5px solid currentColor;
+          opacity: 0.16;
+        }
+        .deco-ring {
+          width: 130px;
+          height: 130px;
+          border-radius: 50%;
+          top: 10%;
+          left: 5%;
+          animation: floatY 7s ease-in-out infinite;
+        }
+        .deco-square {
+          width: 64px;
+          height: 64px;
+          border-radius: 14px;
+          top: 62%;
+          left: 9%;
+          animation: driftX 9s ease-in-out infinite, spinSlow 22s linear infinite;
+        }
+        .deco-dot {
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          top: 22%;
+          right: 9%;
+          animation: floatY 5.5s ease-in-out infinite reverse;
+        }
+        .deco-mark {
+          position: absolute;
+          font-size: 20px;
+          opacity: 0.35;
+          line-height: 1;
+        }
+        .deco-mark-1 {
+          top: 16%;
+          right: 20%;
+          animation: floatY 5s ease-in-out infinite;
+        }
+        .deco-mark-2 {
+          bottom: 24%;
+          left: 7%;
+          animation: floatY 6.5s ease-in-out infinite;
+          animation-delay: 0.8s;
+        }
+        .deco-mark-3 {
+          top: 68%;
+          right: 12%;
+          animation: driftX 6s ease-in-out infinite;
+          animation-delay: 0.4s;
+        }
+
+        .hero-heading .word {
+          display: inline-block;
+          opacity: 0;
+          animation: wordRise 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .eyebrow-playful { cursor: default; }
+        .eyebrow-playful:hover { animation: wiggle 0.5s ease; }
+        .eyebrow-playful .status-dot { animation: dotPop 1.6s ease-in-out infinite; }
+
+        .hero-scroll .bob {
+          display: inline-flex;
+          animation: bobArrow 1.4s ease-in-out infinite;
+        }
+
+        .hero-actions .primary-btn,
+        .hero-actions .text-btn {
+          transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .hero-actions .primary-btn:hover,
+        .hero-actions .text-btn:hover {
+          transform: scale(1.06) rotate(-1deg);
+        }
+        .hero-actions .primary-btn:active,
+        .hero-actions .text-btn:active {
+          transform: scale(0.96);
+        }
+
+        .portrait-ring-spin {
+          animation: spinSlow 20s linear infinite, ringPulse 4s ease-in-out infinite;
+        }
+        .portrait-image-float {
+          animation: floatY 5s ease-in-out infinite;
+        }
+        .portrait-orbit {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+        }
+        .orbit-dot {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: currentColor;
+          opacity: 0.55;
+          transform-origin: -50px center;
+        }
+        .orbit-dot.od-1 { animation: spinSlow 9s linear infinite; }
+        .orbit-dot.od-2 {
+          width: 5px;
+          height: 5px;
+          opacity: 0.35;
+          transform-origin: -78px center;
+          animation: spinSlowReverse 13s linear infinite;
+        }
+        .orbit-dot.od-3 {
+          width: 6px;
+          height: 6px;
+          opacity: 0.3;
+          transform-origin: -104px center;
+          animation: spinSlow 17s linear infinite;
+        }
+        .portrait-caption-wobble {
+          animation: wobbleCaption 4.5s ease-in-out infinite;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .hero *,
+          .hero *::before,
+          .hero *::after {
+            animation: none !important;
+            transition: none !important;
+          }
+        }
+      `}</style>
+
       <div ref={cursor} className={`custom-cursor ${active ? 'active' : ''}`}>
         <span>{active || '·'}</span>
       </div>
@@ -149,15 +352,40 @@ function App() {
       )}
 
       <section id="top" className="hero section-pad">
+        <HeroDecor />
         <div className="hero-copy reveal">
-          <div className="eyebrow">
+          <div
+            className="eyebrow eyebrow-playful"
+            onMouseEnter={() => setActive('HI')}
+            onMouseLeave={() => setActive('')}
+          >
             <span className="status-dot" /> Chief Engineer · Co-Founder ·
             Builder
           </div>
-          <h1>
-            I build things
+          <h1 className="hero-heading">
+            {heroLineOne.map((w, i) => (
+              <span
+                className="word"
+                key={w}
+                style={{ animationDelay: `${i * 70}ms` }}
+              >
+                {w}
+                {i < heroLineOne.length - 1 ? '\u00A0' : ''}
+              </span>
+            ))}
             <br />
-            <em>people can use.</em>
+            <em>
+              {heroLineTwo.map((w, i) => (
+                <span
+                  className="word"
+                  key={w}
+                  style={{ animationDelay: `${220 + i * 70}ms` }}
+                >
+                  {w}
+                  {i < heroLineTwo.length - 1 ? '\u00A0' : ''}
+                </span>
+              ))}
+            </em>
           </h1>
           <p>
             Software engineer, product builder and Chief Engineer & Co-Founder
@@ -178,20 +406,31 @@ function App() {
           onMouseEnter={() => setActive('HELLO')}
           onMouseLeave={() => setActive('')}
         >
-          <div className="portrait-ring" />
-          <img className="portrait-image" src="https://unavatar.io/x/chankuzy" alt="Khalifa Muhammad" />
+          <div className="portrait-ring portrait-ring-spin" />
+          <div className="portrait-orbit">
+            <span className="orbit-dot od-1" />
+            <span className="orbit-dot od-2" />
+            <span className="orbit-dot od-3" />
+          </div>
+          <img
+            className="portrait-image portrait-image-float"
+            src="https://unavatar.io/x/chankuzy"
+            alt="Khalifa Muhammad"
+          />
           <span className="portrait-label">
             KHALIFA
             <br />
             MUHAMMAD
           </span>
-          <div className="portrait-caption">
+          <div className="portrait-caption portrait-caption-wobble">
             <span>Currently building</span>
             <strong>→ Anaija</strong>
           </div>
         </div>
         <div className="hero-scroll">
-          SCROLL TO EXPLORE <ArrowDown size={14} />
+          <span className="bob">
+            SCROLL TO EXPLORE <ArrowDown size={14} />
+          </span>
         </div>
       </section>
 
@@ -233,7 +472,7 @@ function App() {
           <span className="section-count">04 PROJECTS</span>
         </div>
         <div className="projects">
-          {projects.map((p, i) => (
+          {projects.map((p) => (
             <article
               className="project"
               key={p.title}
